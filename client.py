@@ -7,7 +7,7 @@ FORMAT = 'utf-8' #Format of the message
 #TODO:DEFINING PROTS AND SERVER ADDRESS
 PORT = 5000
 DISCONNECT = "!DISCONNECT!"
-SERVER = "169.254.74.144"
+SERVER = "###.###.###.###"
 ADDR = (SERVER, PORT)
 
 CLIENT_SOC = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Create a TCP socket
