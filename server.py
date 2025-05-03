@@ -7,19 +7,14 @@ import time
 
 HEADER = 128 #Header size for the message
 FORMAT = 'utf-8' #Format of the message
-#TODO:DEFINING PROTS AND SERVER ADDRESS
+
 PORT = 5000
 SERVER = socket.gethostbyname(socket.gethostname())  # Get the server's IP address
 Addr = (SERVER, PORT)  # Create a tuple with the server's IP address and port number
 DISCONNECT = "!DISCONNECT!"
 
 
-
-#TODO:CREATING A SOCKET (TCP)
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Create a TCP socket
-
-
-#TODO: BINDING THE SOCKET TO THE ADDr
 server.bind(Addr)
 
 
@@ -41,6 +36,8 @@ def handleConnection(conn , addr):
         
 
         print(f"{addr} says : {msg} \n")
+
+        conn.send("Message Recived".encode(FORMAT)) 
 
         connectedCheck = False
         if msg == DISCONNECT:

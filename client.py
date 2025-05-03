@@ -26,6 +26,9 @@ def send(msg):
 
     print("Message Sent !")
 
+    MsgRecv = CLIENT_SOC.recv(2048).decode(FORMAT)
+    print(MsgRecv) 
+
 send("First Message :)")
 
 
