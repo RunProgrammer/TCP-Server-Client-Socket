@@ -13,3 +13,22 @@ ADDR = (SERVER, PORT)
 CLIENT_SOC = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Create a TCP socket
 CLIENT_SOC.connect(ADDR) #Connects to the server with the defined address and port
 
+
+def send(msg):
+
+    message = msg.encode(FORMAT)
+    msgLen = len(message) #Calculates the length of the message
+    print(msgLen)
+    sendLen = str(msgLen).encode(FORMAT)
+    sendLen += b' ' * (HEADER - len(sendLen))
+    CLIENT_SOC.send(sendLen)
+    CLIENT_SOC.send(message)
+
+    print("Message Sent !")
+
+send("First Message :)")
+
+
+
+
+

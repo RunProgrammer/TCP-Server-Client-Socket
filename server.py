@@ -23,23 +23,26 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Create a TCP socket
 server.bind(Addr)
 
 
+
 def handleConnection(conn , addr):
     
-    print(f"[NEW CONNECTION] {conn,addr} connected. \n") #Prints the address of the client
-    print("Hi there! : ) \n")
+    print(f"[NEW CONNECTION] {addr} connected. \n")
+    # print("Hi there! : ) \n")
     
     connectedCheck = True
     while connectedCheck:
-        msgSpec = conn.recv(HEADER).decode(FORMAT) #Receives the message from the client , with the defined bytes
-        msgLength = len(msgSpec) #Calculates the length of the message
+        #Read the header(length of the msg)
+        msgLength = conn.recv(HEADER).decode(FORMAT) #recives lenth in bytes of padding
         
-        msg = conn.recv(msgLength).decode(FORMAT)
-        #Receives the message from the client , with the defined bytes
+        if msgLength:
+            msgLength = int(msgLength.strip())
+            #Reads the main body of the msg
+            msg = conn.recv(msgLength).decode(FORMAT)
+        
 
         print(f"{addr} says : {msg} \n")
-        time.sleep(100)
-        connectedCheck = False
 
+        connectedCheck = False
         if msg == DISCONNECT:
             connectedCheck = False
         
@@ -50,11 +53,14 @@ def handleConnection(conn , addr):
 def startServer():
     
     server.listen() #Listeing to the incoming connections
-    
+
     while True:
         #It returns the connection (port and address) of the client
         connection , addr = server.accept() #Accepts the connection from the clients
         
+        # print(addr)
+        
+
         #creates a thread for each connection
         threadIt = threading.Thread(target=handleConnection, args=(connection , addr)) 
 
@@ -62,7 +68,7 @@ def startServer():
         threadIt.start()
 
         #Prints the number of active connections
-        print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1} \n") 
+        # print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1} \n") 
         #As the thread already starting one connection , we need to subtarct it by 1
 
 
