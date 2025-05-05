@@ -1,4 +1,4 @@
-# 🔌 Python TCP Client-Server Messaging App
+# 🔌 Python TCP Client-Server Protocol
 
 This project is a simple **multi-threaded TCP client-server messaging system** built using Python's `socket` and `threading` libraries. It allows multiple clients to connect to a single server and exchange simple text messages using a custom fixed-size header protocol.
 
