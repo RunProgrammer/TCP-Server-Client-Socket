@@ -1,84 +1,135 @@
 import socket
+import ssl
 import threading
-from datetime import datetime
 from colorama import init
 from termcolor import colored
-init(autoreset=True) 
+from datetime import datetime
+init(autoreset=True)
 
-HEADER = 128 #Header size for the message
-FORMAT = 'utf-8' #Format of the message
-
+#CONSTANTS
 PORT = 5000
-SERVER = socket.gethostbyname(socket.gethostname())  # Get the server's IP address
-Addr = (SERVER, PORT)  # Create a tuple with the server's IP address and port number
-DISCONNECT = "!DISCONNECT!"
+HEADER = 256
+FORMAT = 'utf-8'
+
+SERVER = socket.gethostbyname(socket.gethostname())
+Addr = (SERVER, PORT)
+FLAGS = ["PING" , "DISCONNECT" , "SEND" , "RECEIVE" , "LOGIN" , "REGISTER"]
+
+#Creates a ssl/tls context for the server (certificate and key files should be in the same directory)
+# sslContext = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+# sslContext.load_cert_chain(certfile="server.crt", keyfile="server.key")
 
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Create a TCP socket
-server.bind(Addr)
+serverSOC = socket.socket(socket.AF_INET, socket.SOCK_STREAM) #USING IPV4 WITH UDP    
+serverSOC.bind(Addr)
+
+
 
 def loggHandler(logInfo):
     with open("serverLog.log", "a+") as logFile:
-        logFile.write(f"{datetime.now()} :- {logInfo} \n")
+        logFile.write(f"{datetime.now()} -> {logInfo} \n")
         print("Logged")
-        
+
+def send(msg , conn):
+    try:
+        print(colored(f"[SEND] {msg}", 'blue'))
+        message = msg.encode(FORMAT)
+        msg_length = len(message)
+        send_length = str(msg_length).encode(FORMAT)
+        send_length += b' ' * (HEADER - len(send_length))  # Padding to ensure the correct header size
+        conn.send(send_length)
+        conn.send(message)
+    except Exception as e:
+        print(f"Error sending message: {e}")
+        conn.close()  
 
 
-def handleConnection(conn , addr):
-    
-    print(colored(f"[NEW CONNECTION] {addr} connected. \n", 'green'))
-    # print("Hi there! : ) \n")
-    
-    loggHandler(f"{addr} connected succesfully ..") #Logs the connection 
+def handleClient(conn, addr):
+    print(colored(f"[NEW CONNECTION] {addr} connected.", 'green'))
+
+    loggHandler(f"[NEW CONNECTION] {addr} connected.")
     
     try:
-        connectedCheck = True
-        while connectedCheck:
-            #Read the header(length of the msg)
-            msgLength = conn.recv(HEADER).decode(FORMAT) #recives lenth in bytes of padding
+        conntectionCheck = True
+        while conntectionCheck:
+            # Receive message length
+            msg_length = conn.recv(HEADER).decode(FORMAT)
+            if msg_length:
+                msg_length = int(msg_length.strip())
+                msg = conn.recv(msg_length).decode(FORMAT)
+                msg = msg.split('|')
+                print(msg)
 
-            if msgLength:
-                msgLength = int(msgLength.strip())
-                #Reads the main body of the msg
-                msg = conn.recv(msgLength).decode(FORMAT)
+                if msg[0] == FLAGS[0]:
+                    print(colored(f"[PING] {addr} is pinged", 'green'))
+                    loggHandler(f"{addr} is pinged")
+                    conn.send("PINGED".encode(FORMAT))
+                
+                elif msg[0] == FLAGS[1]:
+                    print(colored(f"[DISCONNECTED] {addr} disconnected.", 'red'))
+                    # conn.close()  # Close connection gracefully here
+                    conntectionCheck = False
+                    conn.close()
+                    loggHandler(f"{addr} is DISCONNECTED")
+                
+                elif msg[0] == FLAGS[2]:
+                    print(colored(f"[MESSAGE] {addr} sent : {msg[1]}", 'blue'))
+                    conn.send("MESSAGE RECEIVED".encode(FORMAT))
+                    loggHandler(f"Message sent by {addr} to {Addr}")
+                
+                elif msg[0] == FLAGS[3]:
+                    msgTOsend = "just thinking i solved it"
+                    print(colored(f"{addr} is receiving ... ", 'yellow'))
+                    conn.send(f"{msgTOsend}".encode(FORMAT))
+                    loggHandler(f"Message sent by {Addr} to {addr}")
+                    #send("hi sent",conn)
+                elif msg[0] == FLAGS[4]:
+                    print(colored(f"[LOGIN] {addr} sent : {msg[1]}", 'blue'))
+                    uName, uPass = msg[1].split(':')
+                    print(colored(f"{uName} is logged IN with the password {(len(uPass) * '*')}",'green'))
+                    loggHandler(f"[{FLAGS[5]}] User has been logged IN  by {addr}")     
+                    conn.send("User has been loggedIN succesfully ...".encode(FORMAT)) 
+                
+                elif msg[0] == FLAGS[5]:
+                    print(colored(f"[REGISTER] {addr} sent : {msg[1]}", 'blue'))
+                    uName, uPass = msg[1].split(':')
+                    print(colored(f"{uName} is created with the password {(len(uPass) * '*')}",'green'))
+                    loggHandler(f"[{FLAGS[5]}] User has been registerd by {addr}")     
+                    conn.send("User has been register succesfully ...".encode(FORMAT))           
+                else:
+                    print(colored(f"[UNKNOWN FLAG] {addr} sent : {msg[0]}", 'red'))
+                    conn.send("Unknown flag".encode(FORMAT))  # Send error message back
+                    conntectionCheck = False
+                     # Close connection on unknown flag
+            else: 
+                break  # In case the message length is zero, break the loop
 
-
-            print(f"{addr} says : {msg} \n")
-
-            if msg == DISCONNECT:
-                connectedCheck = False
-                loggHandler(f"{addr} disconnected succesfully !!")
-                conn.close() #Closes the connection with the client
-            else:
-                conn.send("Message Recived".encode(FORMAT)) 
-    
     except Exception as e:
-        print(colored(f"[ERROR] {addr} disconnected with error : {e}", 'red'))
-        loggHandler(f"{addr} disconnected with error : {e}")
+        print(colored(f"[EXCEPTION] {e}", 'red'))
+        conntectionCheck = False
+    finally:
         conn.close()
-            
 
+    
 
 def startServer():
-    
-    server.listen() #Listeing to the incoming connections
+
+    serverSOC.listen()
 
     while True:
-        #It returns the connection (port and address) of the client
-        connection , addr = server.accept() #Accepts the connection from the clients
-        #creates a thread for each connection
-        threadIt = threading.Thread(target=handleConnection, args=(connection , addr)) 
-
-        threadIt.start()
-
-        '''
-        if (threading.active_count() - 1) == 1:
+        try:
+            conn , addr = serverSOC.accept()
+            # conn = sslContext.wrap_socket(conn, server_side=True) #wrap the socket with ssl/tls on server side
+            # print(conn)
+            # print(colored(f"[NEW CONNECTION] {addr} connected.", 'yellow'))
+            thread = threading.Thread(target=handleClient , args = (conn, addr))
+            thread.start()
+            print(colored(f"[ACTIVE CONNECTIONS] {threading.active_count()}" , 'blue'))
+        
+        except Exception as e:
+            print(colored(f"[EXCEPTION] {e}", 'red'))
             break
-            exit(0)
-        else:
-            continue
-        '''
 
-print(colored(f"<STARTING SERVER> .... :) {Addr} \n", 'green'))
-print("")
-startServer()
+if __name__ == "__main__":
+    print(colored("[STARTING] Server is starting...", 'green'))
+    startServer()

@@ -1,73 +1,127 @@
 import socket
+import ssl
 from colorama import init
 from termcolor import colored
-init(autoreset=True) #Initialize colorama to reset colors after each print
-
-
-HEADER = 128 #Header size for the message
-FORMAT = 'utf-8' #Format of the message
+init(autoreset=True)
 
 PORT = 5000
-DISCONNECT = "!DISCONNECT!"
-SERVER = "169.254.74.144"
-ADDR = (SERVER, PORT)
+HEADER = 256
+FORMAT = 'utf-8'
+SERVER = socket.gethostbyname(socket.gethostname())
+Addr = (SERVER, PORT)
+FLAGS = ["PING", "DISCONNECT", "SEND", "RECEIVE", "LOGIN", "REGISTER"]
 
-CLIENT_SOC = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Create a TCP socket
-CLIENT_SOC.connect(ADDR) #Connects to the server with the defined address and port
+# sslContext = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+# sslContext.load_verify_locations(cafile="ecc-ca.pem")  # Load the CA certificate
+# sslContext.verify_mode = ssl.CERT_NONE  # Ensure the server certificate is verified
+# sslContext.check_hostname = False  # Check the server's hostname against the certificate
 
 
-def msgFormatter(msg):
-    message = msg.encode(FORMAT) 
-    msgLen = len(message)
-    print(f"Length of the message is : {msgLen}")
-    sendLen = str(msgLen).encode(FORMAT)
-    sendLen += b' ' * (HEADER - len(sendLen)) 
-    
-    return sendLen, message
+clientSOC = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # USING IPV4 WITH TCP
+# clientSOC = sslContext.wrap_socket(rawSOC , server_hostname=SERVER)
+clientSOC.connect(Addr)
+
+msgParameters = {
+    "flag": None,
+    "message": None
+}
+
+
+
+def getRegister():
+    askUsername = input(colored("Enter your username: ", 'blue'))
+    askPassword = input(colored("Enter your password: ", 'blue'))
+    return askUsername, askPassword
+
+
+def getLogin():
+    askUsername = input(colored("Enter your username: ", 'blue'))
+    askPassword = input(colored("Enter your password: ", 'blue'))
+    return askUsername, askPassword
+
+
+def recv():
+    msg_length = clientSOC.recv(HEADER).decode(FORMAT)
+    if msg_length:
+        msg_length = int(msg_length.strip())
+        msg = clientSOC.recv(msg_length).decode(FORMAT)
+        msg = msg.split('|')
+        return msg
+    else:
+        print(colored("[ERROR] Message length is empty", 'red'))
+        clientSOC.close()
 
 
 def send(msg):
-
-    sendLen, message = msgFormatter(msg) #Format the message to be sent
-    CLIENT_SOC.send(sendLen)
-    CLIENT_SOC.send(message)
-    print("Message Sent !")
-
-    MsgRecv = CLIENT_SOC.recv(2048).decode(FORMAT)
-    print(MsgRecv) 
-
-
-def disconnect(msg):
-
-    sendLen, message = msgFormatter(msg) #Format the message to be sent
-    CLIENT_SOC.send(sendLen)
-    CLIENT_SOC.send(message)
-    CLIENT_SOC.close()
-    print(colored("Disconnected from the server ...", 'red'))
-
-        
-
+    try:
+        message = msg.encode(FORMAT)
+        msg_length = len(message)
+        send_length = str(msg_length).encode(FORMAT)
+        send_length += b' ' * (HEADER - len(send_length))  # Padding to ensure the correct header size
+        clientSOC.send(send_length)
+        clientSOC.send(message)
+    except Exception as e:
+        print(f"Error sending message: {e}")
+        clientSOC.close()  # Close the connection if sending fails
 
 if __name__ == "__main__":
-    while True:
-        print(colored("WELCOME TO THE CLIENT SIDE", 'green'))
-        print("")
-        print("1. Send a message")
-        print("2. Disconnect from the server")
-        print("")
-        askInput = input(colored("Select an option (1-3): ", 'yellow'))
-        if askInput == "1":
-            msg = input("Enter your message: ")
-            send(msg)
-        elif askInput == "2":
-            disconnect(DISCONNECT)
-            break
-        else:
-            print(colored("Invalid option. Please try again.", 'red'))
+    print(colored("[STARTING] Client is starting...", 'green'))
+    try:
+        while True:
+            print(colored(FLAGS, 'red'))
+            msgParameters["flag"] = input(colored("Enter the flag: ", 'yellow')).upper()
+            # msgParameters["message"] = input(colored("Enter the message: ", 'yellow'))
+            # combinedMsg = f"{msgParameters['flag']}|{msgParameters['message']}"
+            # send(combinedMsg)
+            # print(colored(f"[MESSAGE SENT] {msgParameters['flag']} {msgParameters['message']}", 'green'))
+            if msgParameters["flag"] == FLAGS[0]:
+                msgParameters["message"] = "PINGED ..."
+                combinedMsg = f"{msgParameters['flag']}|{msgParameters['message']}"
+                send(combinedMsg)
+                msgRcv = clientSOC.recv(HEADER).decode(FORMAT)
+                print(colored(f"[MESSAGE RECEIVED] {msgRcv}", 'blue'))
+                # print(colored(f"[PING] {msgParameters['flag']} {msgParameters['message']}", 'green'))
+            
+            if msgParameters["flag"] == FLAGS[2]:
+                msgParameters["message"] = input(colored("Enter the message: ", 'yellow'))
+                combinedMsg = f"{msgParameters['flag']}|{msgParameters['message']}"
+                send(combinedMsg)
+                msgRcv = clientSOC.recv(HEADER).decode(FORMAT)
+                print(colored(msgRcv, 'blue'))
+
+            if msgParameters["flag"] == FLAGS[3]:
+                
+                msgParameters["message"] = "Client is receiving..."
+                combinedMsg = f"{msgParameters['flag']}|{msgParameters['message']}"
+                send(combinedMsg)
+                msgRcv = clientSOC.recv(HEADER).decode(FORMAT)
+                print(colored(msgRcv, 'blue'))
+
+            if msgParameters["flag"] == FLAGS[4]:
+                userName , password = getLogin()
+                msgParameters["message"] = f"{userName}:{password}"
+                combinedMsg = f"{msgParameters['flag']}|{msgParameters['message']}"
+                send(combinedMsg)
+                msgRecv = clientSOC.recv(HEADER).decode(FORMAT) 
+                print(colored(msgRecv,'green'))
+            
+            
+            if msgParameters["flag"] == FLAGS[5]:
+                # msgParameters["flag"] = input(colored("Enter the flag: ", 'yellow'))
+                userName , password = getRegister()
+                msgParameters["message"] = f"{userName}:{password}"
+                combinedMsg = f"{msgParameters['flag']}|{msgParameters['message']}"
+                send(combinedMsg)
+                msgRecv = clientSOC.recv(HEADER).decode(FORMAT) 
+                print(colored(msgRecv,'green'))
+            
+            if msgParameters["flag"] == FLAGS[1]:
+                print(colored("[DISCONNECTING] Client is disconnecting...", 'red'))
+                msgParameters["message"] = "Client is disconnecting"
+                combinedMsg = f"{msgParameters['flag']}|{msgParameters['message']}"
+                send(combinedMsg)
+                clientSOC.close()
+                exit()
+    except Exception as e:
+        print(f"Error in client: {e}")
     
-        
-
-
-
-
-
